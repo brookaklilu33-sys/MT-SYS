@@ -1,0 +1,212 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'brookaklilu33@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin' &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active')
+      );
+    }
+
+    function isAuthorizedForShop(shopId) {
+      return isSuperAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
+        shopId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.shopIds
+      );
+    }
+
+    // Entity Validations
+    function isValidShop(data) {
+      return data.keys().hasAll(['name', 'code', 'status']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.code is string && data.code.size() > 0 && data.code.size() <= 50 &&
+        data.status in ['active', 'inactive'];
+    }
+
+    function isValidDistrict(data) {
+      return data.keys().hasAll(['shopId', 'name', 'code', 'status']) &&
+        data.shopId is string && data.shopId.size() > 0 && data.shopId.size() <= 128 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.code is string && data.code.size() > 0 && data.code.size() <= 50 &&
+        data.status in ['active', 'inactive'];
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'status']) &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 200 &&
+        data.role in ['superadmin', 'shop_manager', 'recorder', 'auditor'] &&
+        data.status in ['active', 'suspended'];
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'code', 'status']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.code is string && data.code.size() > 0 && data.code.size() <= 50 &&
+        data.status in ['active', 'inactive'];
+    }
+
+    function isValidTransferOut(data) {
+      return data.keys().hasAll(['shopId', 'monthKey', 'amount', 'date', 'refNumber']) &&
+        data.shopId is string && data.shopId.size() > 0 && data.shopId.size() <= 128 &&
+        data.monthKey is string && data.monthKey.size() <= 20 &&
+        data.amount is number &&
+        data.date is string && data.date.size() <= 50 &&
+        data.refNumber is string && data.refNumber.size() <= 100;
+    }
+
+    function isValidSale(data) {
+      return data.keys().hasAll(['shopId', 'monthKey', 'salesDate', 'invoiceNumber', 'salesAmount']) &&
+        data.shopId is string && data.shopId.size() > 0 && data.shopId.size() <= 128 &&
+        data.monthKey is string && data.monthKey.size() <= 20 &&
+        data.salesDate is string && data.salesDate.size() <= 50 &&
+        data.invoiceNumber is string && data.invoiceNumber.size() <= 100 &&
+        data.salesAmount is number &&
+        (!('quantity' in data) || data.quantity is number) &&
+        (!('unitPrice' in data) || data.unitPrice is number) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    function isValidReportingPeriod(data) {
+      return data.keys().hasAll(['shopId', 'monthKey', 'openingBalance', 'status']) &&
+        data.shopId is string && data.shopId.size() <= 128 &&
+        data.monthKey is string && data.monthKey.size() <= 20 &&
+        data.openingBalance is number &&
+        data.status in ['open', 'closed'];
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['action', 'entityType', 'performedBy', 'timestamp']) &&
+        data.action is string && data.action.size() <= 100 &&
+        data.entityType is string && data.entityType.size() <= 50 &&
+        data.performedBy is string && data.performedBy.size() <= 128 &&
+        data.timestamp is string && data.timestamp.size() <= 50;
+    }
+
+    // 1. Shops Collection (Catalog can be read by app users; mutations superadmin only)
+    match /shops/{shopId} {
+      allow get: if isValidId(shopId);
+      allow list: if true;
+      allow create: if isSuperAdmin() && isValidId(shopId) && isValidShop(incoming());
+      allow update: if isSuperAdmin() && isValidId(shopId) && isValidShop(incoming());
+      allow delete: if isSuperAdmin() && isValidId(shopId);
+    }
+
+    // 2. Districts Collection
+    match /districts/{districtId} {
+      allow get: if isValidId(districtId);
+      allow list: if true;
+      allow create: if isSuperAdmin() && isValidId(districtId) && isValidDistrict(incoming());
+      allow update: if isSuperAdmin() && isValidId(districtId) && isValidDistrict(incoming());
+      allow delete: if isSuperAdmin() && isValidId(districtId);
+    }
+
+    // 3. Products Collection
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create: if isSuperAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isSuperAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isSuperAdmin() && isValidId(productId);
+    }
+
+    // 4. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isSuperAdmin());
+      allow list: if isSuperAdmin();
+      allow create: if isSignedIn() && isValidId(userId) && (
+        isSuperAdmin() ||
+        (request.auth.uid == userId && (
+          (incoming().email == 'brookaklilu33@gmail.com' && incoming().role == 'superadmin') ||
+          (incoming().role == 'shop_manager' && (!('status' in incoming()) || incoming().status == 'active'))
+        ))
+      ) && isValidUser(incoming());
+      allow update: if isSignedIn() && isValidId(userId) && (
+        isSuperAdmin() ||
+        (request.auth.uid == userId &&
+         incoming().role == existing().role &&
+         incoming().shopIds == existing().shopIds &&
+         incoming().status == existing().status)
+      ) && isValidUser(incoming());
+      allow delete: if isSuperAdmin() && isValidId(userId);
+    }
+
+    // 5. Transfer Out Collection (Strictly Superadmin for mutations)
+    match /transferOuts/{transferId} {
+      allow get: if isSignedIn() && isValidId(transferId) && isAuthorizedForShop(resource.data.shopId);
+      allow list: if isSignedIn();
+      allow create: if isSuperAdmin() && isValidId(transferId) && isValidTransferOut(incoming());
+      allow update: if isSuperAdmin() && isValidId(transferId) && isValidTransferOut(incoming());
+      allow delete: if isSuperAdmin() && isValidId(transferId);
+    }
+
+    // 6. Sales Collection (Transactions with Receipts)
+    match /sales/{saleId} {
+      allow get: if isSignedIn() && isValidId(saleId) && isAuthorizedForShop(resource.data.shopId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(saleId) &&
+        isAuthorizedForShop(incoming().shopId) &&
+        isValidSale(incoming());
+      allow update: if isSignedIn() && isValidId(saleId) &&
+        isAuthorizedForShop(existing().shopId) &&
+        isAuthorizedForShop(incoming().shopId) &&
+        incoming().shopId == existing().shopId &&
+        isValidSale(incoming());
+      allow delete: if isSuperAdmin() && isValidId(saleId);
+    }
+
+    // 7. Reporting Periods Collection
+    match /reportingPeriods/{periodId} {
+      allow get: if isSignedIn() && isValidId(periodId) && isAuthorizedForShop(resource.data.shopId);
+      allow list: if isSignedIn();
+      allow create: if (isSuperAdmin() || isAuthorizedForShop(incoming().shopId)) &&
+        isValidId(periodId) && isValidReportingPeriod(incoming());
+      allow update: if isSuperAdmin() && isValidId(periodId) && isValidReportingPeriod(incoming());
+      allow delete: if isSuperAdmin() && isValidId(periodId);
+    }
+
+    // 8. Audit Logs Collection (Append-Only)
+    match /auditLogs/{logId} {
+      allow get: if isSuperAdmin() && isValidId(logId);
+      allow list: if isSuperAdmin();
+      allow create: if isSignedIn() && isValidId(logId) && isValidAuditLog(incoming());
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // 9. App Settings Collection
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create: if isSuperAdmin() && isValidId(settingId);
+      allow update: if isSuperAdmin() && isValidId(settingId);
+      allow delete: if isSuperAdmin() && isValidId(settingId);
+    }
+  }
+}

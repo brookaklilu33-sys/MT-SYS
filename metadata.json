@@ -1,0 +1,6 @@
+{
+  "name": "Moderntech Shop ERP",
+  "description": "Multi-Branch Sales Recording, Float Reconciliation, and Receipt Evidence Management System for Moderntech shops.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,191 @@
+{
+  "entities": {
+    "Shop": {
+      "title": "Shop",
+      "description": "Represents an individual retail branch or account.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "code": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "code", "status"]
+    },
+    "District": {
+      "title": "District",
+      "description": "Sub-district within a shop account.",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "code": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["shopId", "name", "code", "status"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authorized user account with shop and role assignments.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 200 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["superadmin", "shop_manager", "recorder", "auditor"] },
+        "shopIds": { "type": "array" },
+        "districtIds": { "type": "array" },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["email", "role", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product category managed in the ERP (default: FLOAT).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "code": { "type": "string", "maxLength": 50 },
+        "unit": { "type": "string", "maxLength": 50 },
+        "isDefault": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "code", "status"]
+    },
+    "TransferOut": {
+      "title": "TransferOut",
+      "description": "Superadmin float transfer-out allocation to a shop.",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string", "maxLength": 128 },
+        "districtId": { "type": "string", "maxLength": 128 },
+        "productId": { "type": "string", "maxLength": 128 },
+        "monthKey": { "type": "string", "maxLength": 20 },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "maxLength": 50 },
+        "refNumber": { "type": "string", "maxLength": 100 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["shopId", "monthKey", "amount", "date", "refNumber"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Sales invoice transaction with attached invoice & deposit evidence.",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string", "maxLength": 128 },
+        "districtId": { "type": "string", "maxLength": 128 },
+        "productId": { "type": "string", "maxLength": 128 },
+        "monthKey": { "type": "string", "maxLength": 20 },
+        "salesDate": { "type": "string", "maxLength": 50 },
+        "invoiceNumber": { "type": "string", "maxLength": 100 },
+        "salesAmount": { "type": "number" },
+        "quantity": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "invoiceImages": { "type": "array" },
+        "bankDeposits": { "type": "array" },
+        "totalDeposited": { "type": "number" },
+        "depositDifference": { "type": "number" },
+        "status": { "type": "string", "enum": ["unreconciled", "partial", "reconciled", "over_deposited", "evidence_pending"] },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdByName": { "type": "string", "maxLength": 100 },
+        "updatedBy": { "type": "string", "maxLength": 128 },
+        "correctionReason": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["shopId", "monthKey", "salesDate", "invoiceNumber", "salesAmount"]
+    },
+    "ReportingPeriod": {
+      "title": "ReportingPeriod",
+      "description": "Monthly reporting cycle configuration and opening balance.",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string", "maxLength": 128 },
+        "monthKey": { "type": "string", "maxLength": 20 },
+        "monthName": { "type": "string", "maxLength": 50 },
+        "openingBalance": { "type": "number" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "closedAt": { "type": "string" },
+        "closedBy": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["shopId", "monthKey", "openingBalance", "status"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Append-only log of modifications and administrative operations.",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 100 },
+        "entityType": { "type": "string", "maxLength": 50 },
+        "entityId": { "type": "string", "maxLength": 128 },
+        "performedBy": { "type": "string", "maxLength": 128 },
+        "performedByEmail": { "type": "string", "maxLength": 200 },
+        "details": { "type": "string", "maxLength": 1000 },
+        "reason": { "type": "string", "maxLength": 500 },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["action", "entityType", "performedBy", "timestamp"]
+    },
+    "AppSetting": {
+      "title": "AppSetting",
+      "description": "Global ERP settings including commission rates.",
+      "type": "object",
+      "properties": {
+        "defaultCommissionRate": { "type": "number" },
+        "calculationBasis": { "type": "string" },
+        "currency": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["defaultCommissionRate"]
+    }
+  },
+  "firestore": {
+    "/shops/{shopId}": {
+      "schema": { "$ref": "#/entities/Shop" },
+      "description": "Stores branch shop master profiles."
+    },
+    "/districts/{districtId}": {
+      "schema": { "$ref": "#/entities/District" },
+      "description": "Stores districts within branches."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User account authorization records."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Product catalog."
+    },
+    "/transferOuts/{transferId}": {
+      "schema": { "$ref": "#/entities/TransferOut" },
+      "description": "Transfer Out allocations managed strictly by superadmins."
+    },
+    "/sales/{saleId}": {
+      "schema": { "$ref": "#/entities/Sale" },
+      "description": "Individual sales invoices with attached evidence."
+    },
+    "/reportingPeriods/{periodId}": {
+      "schema": { "$ref": "#/entities/ReportingPeriod" },
+      "description": "Monthly period status and opening balances per shop."
+    },
+    "/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable operational audit log entries."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AppSetting" },
+      "description": "System-wide financial configurations."
+    }
+  }
+}

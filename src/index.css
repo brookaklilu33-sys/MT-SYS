@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #FFFFFF;
+    --bg-secondary: #F7FAFD;
+    --surface-light: #EAF4FC;
+    --highlight-blue: #DCEEFF;
+    --primary-blue: #2878B9;
+    --primary-blue-hover: #1e6197;
+    --text-main: #202B38;
+    --text-muted: #778493;
+    --border-subtle: #E8EDF2;
+  }
+
+  body {
+    background-color: #F7FAFD;
+    color: #202B38;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Print styles for spreadsheet and reports */
+@media print {
+  header, nav, .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-break-inside-avoid {
+    break-inside: avoid;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F7FAFD;
+}
+::-webkit-scrollbar-thumb {
+  background: #DCEEFF;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2878B9;
+}
