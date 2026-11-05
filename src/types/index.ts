@@ -15,16 +15,53 @@ export interface UserProfile {
   updatedAt?: string;
 }
 
+export type ShopAccountType = 'operational' | 'administrative_consolidation';
+
 export interface Shop {
   id: string;
   name: string;
   code: string;
+  accountType?: ShopAccountType;
   status: 'active' | 'inactive';
   location?: string;
   isConsolidated?: boolean; // True for Adama Main
   consolidatedShopIds?: string[]; // E.g., ['adama', 'hawassa', 'borena', 'bale', 'assela']
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface AdamaMainConsolidation {
+  accountType: 'administrative_consolidation';
+  shopId: 'adama_main';
+  shopName: string;
+  constituentShopIds: string[];
+  constituentShops: Shop[];
+  excludedShopIds: string[];
+  excludedShops: Shop[];
+  totals: {
+    sales: number;
+    deposited: number;
+    transferOut: number;
+    invoiceCount: number;
+    closingBalance: number;
+    commissionAmount: number;
+    difference: number;
+    reconciledCount: number;
+    partialCount: number;
+    pendingEvidenceCount: number;
+  };
+  branchBreakdowns: {
+    shop: Shop;
+    salesTotal: number;
+    depositedTotal: number;
+    invoiceCount: number;
+    transferOutTotal: number;
+    closingBalance: number;
+    reconciledCount: number;
+    partialCount: number;
+    pendingEvidenceCount: number;
+  }[];
+  regionalTransfers: TransferOut[];
 }
 
 export interface District {

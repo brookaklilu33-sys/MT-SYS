@@ -15,7 +15,8 @@ import {
   DollarSign,
   TrendingUp,
   Percent,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
@@ -55,7 +56,7 @@ export const SuperadminDashboard: React.FC<SuperadminDashboardProps> = ({ onSele
   const t = getTranslation(language);
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'shops' | 'districts' | 'users' | 'bbf' | 'commission' | 'periods' | 'audits'
+    'overview' | 'adama_main' | 'shops' | 'districts' | 'users' | 'bbf' | 'commission' | 'periods' | 'audits'
   >('overview');
 
   // Modals & form state
@@ -239,6 +240,15 @@ export const SuperadminDashboard: React.FC<SuperadminDashboardProps> = ({ onSele
             }`}
           >
             Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('adama_main')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+              activeTab === 'adama_main' ? 'bg-[#2878B9] text-white' : 'text-[#778493] hover:text-[#202B38]'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Adama Main Regional</span>
           </button>
           <button
             onClick={() => setActiveTab('shops')}
@@ -458,6 +468,274 @@ export const SuperadminDashboard: React.FC<SuperadminDashboardProps> = ({ onSele
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADAMA MAIN REGIONAL CONSOLIDATION TAB (ADMIN ONLY) */}
+      {activeTab === 'adama_main' && (
+        <div className="space-y-6">
+          {/* Architecture Banner */}
+          <div className="bg-gradient-to-r from-purple-50 to-[#EAF4FC] p-5 rounded-2xl border border-purple-200/80 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold shadow-xs">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-purple-950">
+                    ADAMA MAIN — Regional Consolidation Control Engine
+                  </h2>
+                  <p className="text-xs text-purple-800">
+                    Administrative regional account consolidating live sales from 5 designated branches.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => onSelectShop('adama_main')}
+                className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold shadow-xs transition-colors"
+              >
+                Open Regional Ledger &rarr;
+              </button>
+            </div>
+
+            {/* Strict Business Rules Reminder */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-1">
+              <div className="p-3 bg-white/80 rounded-xl border border-purple-200 text-purple-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-purple-950">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>5 Constituent Operational Branches (Included):</span>
+                </div>
+                <div className="text-[11px] text-purple-800 font-medium pl-5">
+                  1. Adama (4 Districts) • 2. Hawassa • 3. Borena • 4. Bale • 5. Assela
+                </div>
+                <div className="text-[10px] text-purple-600 pl-5 italic">
+                  Sales are entered directly into each operational branch and aggregate dynamically into Adama Main without duplicate records.
+                </div>
+              </div>
+
+              <div className="p-3 bg-white/80 rounded-xl border border-red-200 text-red-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-red-950">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                  <span>Strictly Excluded Independent Branches:</span>
+                </div>
+                <div className="text-[11px] text-red-800 font-medium pl-5">
+                  1. Jemo • 2. Chiro • 3. Shashemene
+                </div>
+                <div className="text-[10px] text-red-600 pl-5 italic">
+                  These branches operate completely independently with their own separate Float reconciliation and are strictly excluded from Adama Main.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Regional Live Financial Totals for Current Month */}
+          {(() => {
+            const assignedIds = ['adama', 'hawassa', 'borena', 'bale', 'assela'];
+            const regSales = sales.filter((s) => assignedIds.includes(s.shopId) && s.monthKey === currentMonthKey);
+            const regTransfers = transferOuts.filter((t) => t.shopId === 'adama_main' && t.monthKey === currentMonthKey);
+            const regSalesTotal = regSales.reduce((sum, s) => sum + s.salesAmount, 0);
+            const regDepositsTotal = regSales.reduce((sum, s) => sum + s.totalDeposited, 0);
+            const regTransferTotal = regTransfers.reduce((sum, t) => sum + t.amount, 0);
+            const regPeriod = reportingPeriods.find((p) => p.shopId === 'adama_main' && p.monthKey === currentMonthKey);
+            const regOpening = regPeriod ? regPeriod.openingBalance : 0;
+            const regClosing = regOpening + regTransferTotal - regSalesTotal;
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-white border border-[#E8EDF2] shadow-2xs">
+                  <span className="text-xs text-[#778493] font-medium uppercase tracking-wider block">
+                    Consolidated Regional Sales
+                  </span>
+                  <span className="text-xl font-bold text-[#202B38] block mt-1">
+                    {formatCurrency(regSalesTotal)}
+                  </span>
+                  <span className="text-[11px] text-[#778493] mt-1 block">
+                    {regSales.length} total invoices across 5 branches
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white border border-[#E8EDF2] shadow-2xs">
+                  <span className="text-xs text-[#778493] font-medium uppercase tracking-wider block">
+                    Regional Bank Deposits
+                  </span>
+                  <span className="text-xl font-bold text-emerald-700 block mt-1">
+                    {formatCurrency(regDepositsTotal)}
+                  </span>
+                  <span className="text-[11px] text-emerald-600 mt-1 block font-medium">
+                    Evidence attached
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white border border-[#E8EDF2] shadow-2xs">
+                  <span className="text-xs text-[#778493] font-medium uppercase tracking-wider block">
+                    Adama Main Transfer Out
+                  </span>
+                  <span className="text-xl font-bold text-[#2878B9] block mt-1">
+                    {formatCurrency(regTransferTotal)}
+                  </span>
+                  <span className="text-[11px] text-[#778493] mt-1 block">
+                    Regional HQ Float allocation
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 shadow-2xs">
+                  <span className="text-xs text-purple-900 font-semibold uppercase tracking-wider block">
+                    Regional Closing SOH
+                  </span>
+                  <span className="text-xl font-bold text-purple-900 block mt-1">
+                    {formatCurrency(regClosing)}
+                  </span>
+                  <span className="text-[11px] text-purple-700 mt-1 block font-medium">
+                    BBF: {formatCurrency(regOpening)}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Constituent 5 Branches Breakdown Table */}
+          <div className="bg-white rounded-2xl border border-[#E8EDF2] shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-[#E8EDF2] flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-[#202B38]">
+                  Consolidated Branches Live Performance ({currentMonthKey})
+                </h3>
+                <p className="text-xs text-[#778493]">
+                  Real-time sales, bank deposits, and reconciliation metrics for each of the 5 branches
+                </p>
+              </div>
+
+              <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-100 text-purple-800 font-semibold">
+                5 Branches Aggregating
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F7FAFD] text-[#778493] font-medium border-b border-[#E8EDF2]">
+                  <tr>
+                    <th className="py-3 px-4">Branch</th>
+                    <th className="py-3 px-4">Code / Location</th>
+                    <th className="py-3 px-4 text-center">Districts</th>
+                    <th className="py-3 px-4 text-right">Total Sales</th>
+                    <th className="py-3 px-4 text-right">Bank Deposited</th>
+                    <th className="py-3 px-4 text-right">Variance</th>
+                    <th className="py-3 px-4 text-center">Invoices</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E8EDF2]">
+                  {['adama', 'hawassa', 'borena', 'bale', 'assela'].map((shopId) => {
+                    const sh = shops.find((s) => s.id === shopId) || { id: shopId, name: shopId, code: shopId.toUpperCase(), location: 'Ethiopia' };
+                    const shDistricts = districts.filter((d) => d.shopId === shopId && d.status === 'active');
+                    const shSales = sales.filter((s) => s.shopId === shopId && s.monthKey === currentMonthKey);
+                    const sTotal = shSales.reduce((sum, s) => sum + s.salesAmount, 0);
+                    const sDep = shSales.reduce((sum, s) => sum + s.totalDeposited, 0);
+                    const sVar = sTotal - sDep;
+
+                    return (
+                      <tr key={shopId} className="hover:bg-[#F7FAFD]">
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-[#202B38] flex items-center gap-2">
+                            <Building2 className="w-3.5 h-3.5 text-[#2878B9]" />
+                            <span>{sh.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-[#778493]">
+                          {sh.code} • {sh.location || 'Ethiopia'}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#EAF4FC] text-[#2878B9]">
+                            {shDistricts.length} active
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-[#202B38]">
+                          {formatCurrency(sTotal)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-medium text-emerald-700">
+                          {formatCurrency(sDep)}
+                        </td>
+                        <td
+                          className={`py-3.5 px-4 text-right font-mono font-semibold ${
+                            sVar === 0 ? 'text-emerald-600' : sVar > 0 ? 'text-amber-600' : 'text-blue-600'
+                          }`}
+                        >
+                          {formatCurrency(sVar)}
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-semibold text-[#202B38]">
+                          {shSales.length}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => onSelectShop(shopId)}
+                            className="px-2.5 py-1 rounded bg-[#EAF4FC] text-[#2878B9] hover:bg-[#DCEEFF] font-semibold text-[11px]"
+                          >
+                            Open Ledger
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Adama Districts Specific Configuration Module */}
+          <div className="bg-white p-5 rounded-2xl border border-[#E8EDF2] shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E8EDF2] pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-[#202B38]">
+                  Adama Branch Districts (District 1, District 2, District 3, District 4)
+                </h3>
+                <p className="text-xs text-[#778493]">
+                  Superadmins can add, rename, and activate/deactivate Adama operational districts.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setDistShopId('adama');
+                  setShowAddDistrict(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2878B9] text-white text-xs font-semibold"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Adama District</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {districts
+                .filter((d) => d.shopId === 'adama')
+                .map((d) => (
+                  <div key={d.id} className="p-3.5 bg-[#F7FAFD] rounded-xl border border-[#E8EDF2] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-[#202B38]">{d.name}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                          d.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {d.status.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-[#778493] font-mono">Code: {d.code}</div>
+
+                    <div className="pt-2 border-t border-[#E8EDF2] flex justify-end">
+                      <button
+                        onClick={() => updateDistrict(d.id, { status: d.status === 'active' ? 'inactive' : 'active' })}
+                        className="text-xs text-[#2878B9] hover:underline font-medium"
+                      >
+                        {d.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
         </div>

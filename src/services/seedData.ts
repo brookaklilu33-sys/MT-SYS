@@ -1,4 +1,5 @@
 import { District, Product, ReportingPeriod, Sale, Shop, TransferOut, UserProfile } from '../types';
+import { generateInvoiceSvg, generateDepositSvg } from './receiptAssets';
 
 export const INITIAL_SHOPS: Shop[] = [
   // Special Administrative Consolidation Account
@@ -6,6 +7,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'adama_main',
     name: 'ADAMA MAIN (Consolidated)',
     code: 'ADAMA-MAIN',
+    accountType: 'administrative_consolidation',
     status: 'active',
     location: 'Oromia Regional HQ',
     isConsolidated: true,
@@ -17,6 +19,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'adama',
     name: 'Adama Shop',
     code: 'ADAMA',
+    accountType: 'operational',
     status: 'active',
     location: 'Adama, Oromia',
     createdAt: '2026-10-01T00:00:00.000Z'
@@ -25,6 +28,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'hawassa',
     name: 'Hawassa Shop',
     code: 'HAWASSA',
+    accountType: 'operational',
     status: 'active',
     location: 'Hawassa, Sidama',
     createdAt: '2026-10-01T00:00:00.000Z'
@@ -33,6 +37,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'borena',
     name: 'Borena Shop',
     code: 'BORENA',
+    accountType: 'operational',
     status: 'active',
     location: 'Borena, Oromia',
     createdAt: '2026-10-01T00:00:00.000Z'
@@ -41,6 +46,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'bale',
     name: 'Bale Shop',
     code: 'BALE',
+    accountType: 'operational',
     status: 'active',
     location: 'Bale, Oromia',
     createdAt: '2026-10-01T00:00:00.000Z'
@@ -49,6 +55,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'assela',
     name: 'Assela Shop',
     code: 'ASSELA',
+    accountType: 'operational',
     status: 'active',
     location: 'Assela, Oromia',
     createdAt: '2026-10-01T00:00:00.000Z'
@@ -57,6 +64,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'shashemene',
     name: 'Shashemene Shop',
     code: 'SHASHEMENE',
+    accountType: 'operational',
     status: 'active',
     location: 'Shashemene, Oromia',
     createdAt: '2026-10-01T00:00:00.000Z'
@@ -65,6 +73,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'chiro',
     name: 'Chiro Shop',
     code: 'CHIRO',
+    accountType: 'operational',
     status: 'active',
     location: 'Chiro, Oromia',
     createdAt: '2026-10-01T00:00:00.000Z'
@@ -73,6 +82,7 @@ export const INITIAL_SHOPS: Shop[] = [
     id: 'jemo',
     name: 'Jemo Shop',
     code: 'JEMO',
+    accountType: 'operational',
     status: 'active',
     location: 'Jemo, Addis Ababa',
     createdAt: '2026-10-01T00:00:00.000Z'
@@ -337,7 +347,7 @@ const jemoSales: Sale[] = RAW_OCTOBER_JEMO_SALES.map((item, index) => {
     quantity: 1,
     unitPrice: item.amount,
     notes: `Daily Float sales - Ref #${item.ref}`,
-    invoiceImages: ['https://images.unsplash.com/photo-1554415707-9e4466b02530?auto=format&fit=crop&w=600&q=80'],
+    invoiceImages: [generateInvoiceSvg(item.ref, item.amount, item.date)],
     bankDeposits: depositAmount > 0 ? [
       {
         id: `dep-${item.ref}-1`,
@@ -345,7 +355,7 @@ const jemoSales: Sale[] = RAW_OCTOBER_JEMO_SALES.map((item, index) => {
         amount: depositAmount,
         bankName: 'Commercial Bank of Ethiopia (CBE)',
         refNumber: `CBE-${item.ref}`,
-        imageUrl: 'https://images.unsplash.com/photo-1554415707-9e4466b02530?auto=format&fit=crop&w=600&q=80',
+        imageUrl: generateDepositSvg('Commercial Bank of Ethiopia (CBE)', `CBE-${item.ref}`, depositAmount, item.date),
         uploadedAt: `${item.date}T16:00:00.000Z`,
         uploadedBy: 'Jemo Shop Manager'
       }
@@ -377,7 +387,7 @@ const adamaBranchSales: Sale[] = [
     salesAmount: 450000,
     quantity: 1,
     unitPrice: 450000,
-    invoiceImages: [],
+    invoiceImages: [generateInvoiceSvg('ADM-004120', 450000, '2026-10-02')],
     bankDeposits: [
       {
         id: 'dep-adm-1',
@@ -385,6 +395,7 @@ const adamaBranchSales: Sale[] = [
         amount: 450000,
         bankName: 'CBE',
         refNumber: 'CBE-ADM-1',
+        imageUrl: generateDepositSvg('CBE', 'CBE-ADM-1', 450000, '2026-10-02'),
         uploadedAt: '2026-10-02T12:00:00Z',
         uploadedBy: 'Adama Manager'
       }
@@ -411,7 +422,7 @@ const adamaBranchSales: Sale[] = [
     salesAmount: 380000,
     quantity: 1,
     unitPrice: 380000,
-    invoiceImages: [],
+    invoiceImages: [generateInvoiceSvg('ADM-004121', 380000, '2026-10-15')],
     bankDeposits: [
       {
         id: 'dep-adm-2',
@@ -419,6 +430,7 @@ const adamaBranchSales: Sale[] = [
         amount: 380000,
         bankName: 'CBE',
         refNumber: 'CBE-ADM-2',
+        imageUrl: generateDepositSvg('CBE', 'CBE-ADM-2', 380000, '2026-10-15'),
         uploadedAt: '2026-10-15T12:00:00Z',
         uploadedBy: 'Adama Manager'
       }
@@ -444,7 +456,7 @@ const adamaBranchSales: Sale[] = [
     salesAmount: 520000,
     quantity: 1,
     unitPrice: 520000,
-    invoiceImages: [],
+    invoiceImages: [generateInvoiceSvg('HAW-001092', 520000, '2026-10-05')],
     bankDeposits: [
       {
         id: 'dep-haw-1',
@@ -452,6 +464,7 @@ const adamaBranchSales: Sale[] = [
         amount: 520000,
         bankName: 'Awash Bank',
         refNumber: 'AW-HAW-1',
+        imageUrl: generateDepositSvg('Awash Bank', 'AW-HAW-1', 520000, '2026-10-05'),
         uploadedAt: '2026-10-05T14:00:00Z',
         uploadedBy: 'Hawassa Manager'
       }
@@ -477,7 +490,7 @@ const adamaBranchSales: Sale[] = [
     salesAmount: 290000,
     quantity: 1,
     unitPrice: 290000,
-    invoiceImages: [],
+    invoiceImages: [generateInvoiceSvg('BOR-000451', 290000, '2026-10-10')],
     bankDeposits: [
       {
         id: 'dep-bor-1',
@@ -485,6 +498,7 @@ const adamaBranchSales: Sale[] = [
         amount: 290000,
         bankName: 'CBE',
         refNumber: 'CBE-BOR-1',
+        imageUrl: generateDepositSvg('CBE', 'CBE-BOR-1', 290000, '2026-10-10'),
         uploadedAt: '2026-10-10T11:00:00Z',
         uploadedBy: 'Borena Manager'
       }
@@ -510,7 +524,7 @@ const adamaBranchSales: Sale[] = [
     salesAmount: 310000,
     quantity: 1,
     unitPrice: 310000,
-    invoiceImages: [],
+    invoiceImages: [generateInvoiceSvg('BAL-000782', 310000, '2026-10-12')],
     bankDeposits: [
       {
         id: 'dep-bal-1',
@@ -518,6 +532,7 @@ const adamaBranchSales: Sale[] = [
         amount: 310000,
         bankName: 'CBE',
         refNumber: 'CBE-BAL-1',
+        imageUrl: generateDepositSvg('CBE', 'CBE-BAL-1', 310000, '2026-10-12'),
         uploadedAt: '2026-10-12T15:00:00Z',
         uploadedBy: 'Bale Manager'
       }
@@ -543,7 +558,7 @@ const adamaBranchSales: Sale[] = [
     salesAmount: 260000,
     quantity: 1,
     unitPrice: 260000,
-    invoiceImages: [],
+    invoiceImages: [generateInvoiceSvg('ASS-000913', 260000, '2026-10-18')],
     bankDeposits: [
       {
         id: 'dep-ass-1',
@@ -551,6 +566,7 @@ const adamaBranchSales: Sale[] = [
         amount: 260000,
         bankName: 'Telebirr',
         refNumber: 'TB-ASS-1',
+        imageUrl: generateDepositSvg('Telebirr', 'TB-ASS-1', 260000, '2026-10-18'),
         uploadedAt: '2026-10-18T16:00:00Z',
         uploadedBy: 'Assela Manager'
       }

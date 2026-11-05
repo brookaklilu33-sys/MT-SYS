@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -16,13 +16,18 @@ import {
   CheckCircle2,
   Layers,
   ShieldCheck,
-  Building
+  Building,
+  Plus,
+  Edit2,
+  ShieldAlert,
+  X,
+  Check
 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency, formatNumber } from '../../services/calculations';
 import { getTranslation } from '../../services/i18n';
-import { Sale } from '../../types';
+import { Sale, TransferOut } from '../../types';
 
 interface ShopDashboardProps {
   onOpenRecordSale: () => void;
@@ -35,13 +40,44 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
   onViewSpreadsheet,
   onSelectSale
 }) => {
-  const { summary, filteredSales, currentShop, currentMonthKey, currentShopId, adamaMainBreakdown, setCurrentShopId } = useShop();
+  const {
+    summary,
+    filteredSales,
+    currentShop,
+    currentMonthKey,
+    currentShopId,
+    setCurrentShopId,
+    adamaMainConsolidation,
+    isAdamaMainConsolidation,
+    addTransferOut,
+    updateTransferOut,
+    shops,
+    products
+  } = useShop();
+
   const { language, isSuperAdmin } = useAuth();
   const t = getTranslation(language);
 
-  const isAdamaMain = currentShopId === 'adama_main';
+  const isAdamaMain = currentShopId === 'adama_main' || isAdamaMainConsolidation;
 
-  // Compute daily sales breakdown for visual activity trend
+  // Transfer Out Modal State on Adama Main Dashboard
+  const [showAllocateModal, setShowAllocateModal] = useState(false);
+  const [targetShopId, setTargetShopId] = useState<string>('adama_main');
+  const [toAmount, setToAmount] = useState<string>('');
+  const [toDate, setToDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [toRef, setToRef] = useState<string>('');
+  const [toNotes, setToNotes] = useState<string>('');
+  const [isSubmittingTO, setIsSubmittingTO] = useState(false);
+  const [toError, setToError] = useState('');
+  const [toSuccess, setToSuccess] = useState('');
+
+  // Transfer Out Edit Modal State
+  const [editingTransfer, setEditingTransfer] = useState<TransferOut | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editRef, setEditRef] = useState('');
+  const [editReason, setEditReason] = useState('');
+
+  // Daily totals calculation
   const dailyTotals = React.useMemo(() => {
     const map: Record<string, number> = {};
     filteredSales.forEach((s) => {
@@ -61,6 +97,78 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
       .sort((a, b) => new Date(b.createdAt || b.salesDate).getTime() - new Date(a.createdAt || a.salesDate).getTime())
       .slice(0, 6);
   }, [filteredSales]);
+
+  // Handle Allocate Regional Float submit
+  const handleAllocateTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const num = parseFloat(toAmount);
+    if (isNaN(num) || num <= 0) {
+      setToError('Please enter a valid transfer amount.');
+      return;
+    }
+    if (!toRef.trim()) {
+      setToError('Please enter a reference number (e.g. TO-ADM-MAIN-02).');
+      return;
+    }
+
+    setIsSubmittingTO(true);
+    setToError('');
+    setToSuccess('');
+
+    try {
+      const targetShop = shops.find((s) => s.id === targetShopId);
+      await addTransferOut({
+        shopId: targetShopId,
+        shopName: targetShop?.name || targetShopId,
+        productId: 'float',
+        productName: 'FLOAT',
+        monthKey: currentMonthKey,
+        amount: num,
+        date: toDate,
+        refNumber: toRef.trim(),
+        notes: toNotes.trim() || undefined,
+        createdBy: 'Superadmin'
+      });
+
+      setToAmount('');
+      setToRef('');
+      setToNotes('');
+      setToSuccess('Transfer Out batch allocated successfully!');
+      setTimeout(() => {
+        setShowAllocateModal(false);
+        setToSuccess('');
+      }, 1200);
+    } catch (err: any) {
+      setToError(err.message || 'Failed to allocate Transfer Out.');
+    } finally {
+      setIsSubmittingTO(false);
+    }
+  };
+
+  // Handle Edit Transfer submit
+  const handleSaveTransferCorrection = async () => {
+    if (!editingTransfer) return;
+    if (!editReason.trim()) {
+      alert('A mandatory audit reason is required.');
+      return;
+    }
+    const num = parseFloat(editAmount);
+    if (isNaN(num) || num <= 0) {
+      alert('Please enter a valid amount.');
+      return;
+    }
+
+    await updateTransferOut(
+      editingTransfer.id,
+      {
+        amount: num,
+        refNumber: editRef.trim()
+      },
+      editReason.trim()
+    );
+
+    setEditingTransfer(null);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -82,12 +190,12 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
                   : 'bg-[#EAF4FC] text-[#2878B9] border-[#DCEEFF]'
               }`}
             >
-              {isAdamaMain ? 'Regional HQ Consolidation' : 'Active'}
+              {isAdamaMain ? 'Administrative Consolidation Account' : 'Operational Account'}
             </span>
           </div>
           <p className="text-xs text-[#778493] mt-0.5">
             {isAdamaMain ? (
-              <span>{t.adamaMainSubtitle}</span>
+              <span>{t.adamaMainSubtitle} • Reporting Cycle: <strong className="text-[#202B38]">{currentMonthKey}</strong></span>
             ) : (
               <span>
                 {t.reportingCycle}: <strong className="text-[#202B38]">{currentMonthKey}</strong> • Currency: <strong>ETB</strong>
@@ -97,6 +205,20 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {isAdamaMain && isSuperAdmin && (
+            <button
+              onClick={() => {
+                setToError('');
+                setToSuccess('');
+                setShowAllocateModal(true);
+              }}
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2878B9] hover:bg-[#1e6197] text-xs font-semibold text-white shadow-xs transition-colors"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              <span>Allocate Regional Float</span>
+            </button>
+          )}
+
           <button
             onClick={onViewSpreadsheet}
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#E8EDF2] bg-[#F7FAFD] hover:bg-[#EAF4FC] text-xs font-semibold text-[#202B38] transition-colors"
@@ -104,54 +226,61 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
             <Table className="w-4 h-4 text-[#2878B9]" />
             <span>{t.viewRecords}</span>
           </button>
-
-          {!isAdamaMain && (
-            <button
-              onClick={onOpenRecordSale}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#2878B9] hover:bg-[#1e6197] text-white text-xs font-semibold shadow-xs transition-all active:scale-95"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ {t.recordSale}</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* SPECIAL ADAMA MAIN REGIONAL CONSOLIDATION BANNER & BRANCH BREAKDOWN */}
+      {/* ADAMA MAIN CONSTITUENT 5-BRANCH MATRIX */}
       {isAdamaMain && (
         <div className="bg-white p-5 rounded-2xl border border-[#E8EDF2] shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8EDF2] pb-3">
             <div>
               <h2 className="text-sm font-bold text-[#202B38] flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-[#2878B9]" />
-                <span>{t.consolidatedBranches}</span>
+                <span>Consolidated Operational Branches (5 Accounts)</span>
               </h2>
-              <p className="text-xs text-[#778493]">{t.excludedShopsNote}</p>
+              <p className="text-xs text-[#778493]">
+                Aggregating real-time figures from Adama, Hawassa, Borena, Bale, and Assela.
+              </p>
             </div>
-            <span className="text-xs font-bold text-[#2878B9] bg-[#EAF4FC] px-2.5 py-1 rounded-lg">
-              5 Regional Branches Linked
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-[#2878B9] bg-[#EAF4FC] px-2.5 py-1 rounded-lg">
+                5 Branches Linked
+              </span>
+              <span className="text-[11px] font-medium text-[#778493] bg-[#F7FAFD] px-2.5 py-1 rounded-lg border border-[#E8EDF2]">
+                Jemo, Chiro & Shashemene Excluded
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {adamaMainBreakdown.map(({ shop, salesTotal, invoiceCount, deposited }) => (
+            {adamaMainConsolidation.branchBreakdowns.map((branch) => (
               <div
-                key={shop.id}
-                onClick={() => setCurrentShopId(shop.id)}
-                className="p-3.5 rounded-xl border border-[#E8EDF2] bg-[#F7FAFD] hover:bg-[#EAF4FC]/50 hover:border-[#2878B9] cursor-pointer transition-all space-y-2 group shadow-2xs"
+                key={branch.shop.id}
+                onClick={() => setCurrentShopId(branch.shop.id)}
+                className="p-3.5 rounded-xl border border-[#E8EDF2] bg-[#F7FAFD] hover:bg-[#EAF4FC]/60 hover:border-[#2878B9] cursor-pointer transition-all space-y-2 group shadow-2xs"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#202B38] group-hover:text-[#2878B9]">
-                    {shop.name}
+                    {branch.shop.name}
                   </span>
                   <ChevronRight className="w-3.5 h-3.5 text-[#778493] group-hover:text-[#2878B9]" />
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-[#202B38]">
-                    {formatCurrency(salesTotal)}
+                <div className="space-y-1">
+                  <div>
+                    <div className="text-sm font-bold text-[#202B38]">
+                      {formatCurrency(branch.salesTotal)}
+                    </div>
+                    <div className="text-[10px] text-[#778493]">
+                      Sales • {branch.invoiceCount} invoices
+                    </div>
                   </div>
-                  <div className="text-[10px] text-[#778493]">
-                    {invoiceCount} invoices • Deposited: {formatCurrency(deposited)}
+                  <div className="pt-1 border-t border-[#E8EDF2]/60 flex items-center justify-between text-[10px]">
+                    <span className="text-[#778493]">Deposited:</span>
+                    <span className="font-semibold text-emerald-700">{formatCurrency(branch.depositedTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-[#778493]">Allocated Float:</span>
+                    <span className="font-semibold text-[#2878B9]">{formatCurrency(branch.transferOutTotal)}</span>
                   </div>
                 </div>
               </div>
@@ -200,7 +329,7 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
             {formatCurrency(summary.totalTransferOut)}
           </div>
           <div className="text-[10px] text-[#778493] mt-1">
-            {t.allocatedByHq}
+            {isAdamaMain ? 'Regional Float Pool' : t.allocatedByHq}
           </div>
         </div>
 
@@ -264,6 +393,97 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
         </div>
       </div>
 
+      {/* ADAMA MAIN INTEGRATED TRANSFER OUT MANAGEMENT PANEL */}
+      {isAdamaMain && (
+        <div className="bg-white p-5 rounded-2xl border border-[#E8EDF2] shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E8EDF2] pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-[#202B38] flex items-center gap-1.5">
+                <ArrowRightLeft className="w-4 h-4 text-[#2878B9]" />
+                <span>Regional Transfer Out Allocations ({currentMonthKey})</span>
+              </h2>
+              <p className="text-xs text-[#778493]">
+                Float batches injected by Moderntech Superadmin into Adama Main or constituent branches.
+              </p>
+            </div>
+
+            {isSuperAdmin && (
+              <button
+                onClick={() => {
+                  setToError('');
+                  setToSuccess('');
+                  setShowAllocateModal(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2878B9] hover:bg-[#1e6197] text-white text-xs font-semibold transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Allocate Transfer Out Batch</span>
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#F7FAFD] text-[#778493] font-medium border-b border-[#E8EDF2]">
+                <tr>
+                  <th className="py-2.5 px-4">Ref Number</th>
+                  <th className="py-2.5 px-4">Date</th>
+                  <th className="py-2.5 px-4">Allocated To</th>
+                  <th className="py-2.5 px-4 text-right">Amount (ETB)</th>
+                  <th className="py-2.5 px-4">Notes</th>
+                  {isSuperAdmin && <th className="py-2.5 px-4 text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E8EDF2]">
+                {adamaMainConsolidation.regionalTransfers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-[#778493]">
+                      No regional Transfer Out batches recorded for {currentMonthKey} yet.
+                    </td>
+                  </tr>
+                ) : (
+                  adamaMainConsolidation.regionalTransfers.map((item) => (
+                    <tr key={item.id} className="hover:bg-[#F7FAFD] transition-colors">
+                      <td className="py-3 px-4 font-mono font-bold text-[#202B38]">{item.refNumber}</td>
+                      <td className="py-3 px-4 text-[#778493]">{item.date}</td>
+                      <td className="py-3 px-4 font-medium text-[#202B38]">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          item.shopId === 'adama_main' ? 'bg-purple-100 text-purple-800' : 'bg-[#EAF4FC] text-[#2878B9]'
+                        }`}>
+                          {item.shopName || item.shopId}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-[#2878B9]">
+                        {formatCurrency(item.amount)}
+                      </td>
+                      <td className="py-3 px-4 text-[#778493] truncate max-w-[200px]">
+                        {item.notes || '-'}
+                      </td>
+                      {isSuperAdmin && (
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => {
+                              setEditingTransfer(item);
+                              setEditAmount(item.amount.toString());
+                              setEditRef(item.refNumber);
+                              setEditReason('');
+                            }}
+                            className="p-1 text-[#2878B9] hover:bg-[#EAF4FC] rounded"
+                            title="Edit with mandatory audit reason"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Activity Chart & Evidence Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Daily Sales Bar Chart */}
@@ -272,7 +492,7 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
             <div>
               <h2 className="text-sm font-bold text-[#202B38]">{t.dailyActivity}</h2>
               <p className="text-xs text-[#778493]">
-                {isAdamaMain ? 'Combined regional float transactions across the 5 branches' : `Sales distribution for ${currentMonthKey}`}
+                {isAdamaMain ? 'Combined regional float sales across the 5 constituent branches' : `Sales distribution for ${currentMonthKey}`}
               </p>
             </div>
             <span className="text-xs font-semibold text-[#2878B9] bg-[#EAF4FC] px-2.5 py-1 rounded-lg">
@@ -469,6 +689,191 @@ export const ShopDashboard: React.FC<ShopDashboardProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Superadmin Allocate Regional Float Modal */}
+      {showAllocateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-2xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-[#E8EDF2] shadow-xl text-xs animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-[#E8EDF2] pb-3">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-[#2878B9]" />
+                <h3 className="text-sm font-bold text-[#202B38]">Allocate Regional Float</h3>
+              </div>
+              <button
+                onClick={() => setShowAllocateModal(false)}
+                className="text-[#778493] hover:text-[#202B38] p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {toError && (
+              <div className="p-2.5 bg-red-50 text-red-700 text-xs rounded-lg border border-red-200">
+                {toError}
+              </div>
+            )}
+
+            {toSuccess && (
+              <div className="p-2.5 bg-emerald-50 text-emerald-700 text-xs rounded-lg border border-emerald-200 flex items-center gap-1.5 font-medium">
+                <Check className="w-4 h-4" />
+                <span>{toSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAllocateTransfer} className="space-y-3">
+              <div>
+                <label className="block text-[#778493] mb-1 font-medium">Target Account *</label>
+                <select
+                  value={targetShopId}
+                  onChange={(e) => setTargetShopId(e.target.value)}
+                  className="w-full p-2.5 bg-[#F7FAFD] border border-[#E8EDF2] rounded-xl text-[#202B38] font-bold"
+                >
+                  <option value="adama_main">ADAMA MAIN (Regional Consolidation Pool)</option>
+                  <option value="adama">Adama Shop</option>
+                  <option value="hawassa">Hawassa Shop</option>
+                  <option value="borena">Borena Shop</option>
+                  <option value="bale">Bale Shop</option>
+                  <option value="assela">Assela Shop</option>
+                </select>
+                <p className="text-[10px] text-[#2878B9] mt-1 font-medium">
+                  {targetShopId === 'adama_main'
+                    ? 'Funds the shared regional float pool for all 5 constituent branches.'
+                    : 'Allocates directly to the specified operational branch.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[#778493] mb-1 font-medium">Transfer Date *</label>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-full p-2.5 bg-[#F7FAFD] border border-[#E8EDF2] rounded-xl text-[#202B38]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#778493] mb-1 font-medium">Ref Number *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. TO-ADM-MAIN-02"
+                    value={toRef}
+                    onChange={(e) => setToRef(e.target.value)}
+                    className="w-full p-2.5 bg-[#F7FAFD] border border-[#E8EDF2] rounded-xl text-[#202B38] font-mono font-medium"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[#778493] mb-1 font-medium">Transfer Amount (ETB) *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 font-bold text-[#2878B9]">ETB</span>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    value={toAmount}
+                    onChange={(e) => setToAmount(e.target.value)}
+                    className="w-full pl-12 pr-3 py-2 bg-[#F7FAFD] border border-[#E8EDF2] rounded-xl text-[#202B38] font-bold text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[#778493] mb-1 font-medium">Notes (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Dispatch batch reference or telecom transaction details..."
+                  value={toNotes}
+                  onChange={(e) => setToNotes(e.target.value)}
+                  className="w-full p-2.5 bg-[#F7FAFD] border border-[#E8EDF2] rounded-xl text-[#202B38]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E8EDF2]">
+                <button
+                  type="button"
+                  onClick={() => setShowAllocateModal(false)}
+                  className="px-3.5 py-2 border border-[#E8EDF2] rounded-xl text-[#778493] hover:bg-[#F7FAFD]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingTO}
+                  className="px-4 py-2 bg-[#2878B9] hover:bg-[#1e6197] text-white font-semibold rounded-xl transition-colors shadow-xs"
+                >
+                  {isSubmittingTO ? 'Allocating...' : 'Confirm Allocation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Superadmin Edit Transfer Dialog */}
+      {editingTransfer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-2xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-3.5 border border-[#E8EDF2] shadow-xl text-xs">
+            <h3 className="text-sm font-bold text-[#202B38]">Edit Transfer Out #{editingTransfer.refNumber}</h3>
+
+            <div>
+              <label className="block text-[#778493] mb-1">Ref Number</label>
+              <input
+                type="text"
+                value={editRef}
+                onChange={(e) => setEditRef(e.target.value)}
+                className="w-full p-2 border border-[#E8EDF2] rounded-lg font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[#778493] mb-1">Amount (ETB)</label>
+              <input
+                type="number"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                className="w-full p-2 border border-[#E8EDF2] rounded-lg font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[#778493] mb-1 font-semibold text-red-600">
+                Mandatory Audit Reason *
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Audit reason for modifying this financial transfer..."
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                className="w-full p-2 border border-red-300 rounded-lg"
+                required
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#E8EDF2]">
+              <button
+                type="button"
+                onClick={() => setEditingTransfer(null)}
+                className="px-3.5 py-1.5 border border-[#E8EDF2] rounded-lg text-[#778493]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveTransferCorrection}
+                className="px-4 py-1.5 bg-[#2878B9] text-white font-semibold rounded-lg"
+              >
+                Save Correction
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

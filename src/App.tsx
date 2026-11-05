@@ -11,6 +11,7 @@ import { ShopDashboard } from './components/dashboard/ShopDashboard';
 import { ShopSpreadsheet } from './components/spreadsheet/ShopSpreadsheet';
 import { TransferOutManagement } from './components/transfer/TransferOutManagement';
 import { SuperadminDashboard } from './components/admin/SuperadminDashboard';
+import { AuditLogViewer } from './components/audit/AuditLogViewer';
 import { RecordSaleModal } from './components/sales/RecordSaleModal';
 import { SaleDetailModal } from './components/sales/SaleDetailModal';
 import { Sale } from './types';
@@ -19,7 +20,7 @@ function ERPAppContent() {
   const { isSuperAdmin } = useAuth();
   const { setCurrentShopId } = useShop();
 
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'spreadsheet' | 'transfer' | 'admin'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'spreadsheet' | 'transfer' | 'audit' | 'admin'>('dashboard');
   const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
@@ -56,6 +57,10 @@ function ERPAppContent() {
 
         {currentTab === 'transfer' && isSuperAdmin && (
           <TransferOutManagement />
+        )}
+
+        {currentTab === 'audit' && (
+          <AuditLogViewer />
         )}
 
         {currentTab === 'admin' && isSuperAdmin && (

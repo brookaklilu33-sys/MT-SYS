@@ -60,9 +60,14 @@ export const TransferOutManagement: React.FC = () => {
 
   const shopDistricts = districts.filter((d) => d.shopId === selectedShopId && d.status === 'active');
 
-  const filteredTransfers = transferOuts.filter(
-    (tItem) => tItem.shopId === selectedShopId && tItem.monthKey === selectedMonth
-  );
+  const ADAMA_BRANCHES = ['adama', 'hawassa', 'borena', 'bale', 'assela'];
+
+  const filteredTransfers = transferOuts.filter((tItem) => {
+    if (selectedShopId === 'adama_main') {
+      return (tItem.shopId === 'adama_main' || ADAMA_BRANCHES.includes(tItem.shopId)) && tItem.monthKey === selectedMonth;
+    }
+    return tItem.shopId === selectedShopId && tItem.monthKey === selectedMonth;
+  });
 
   const totalTransferred = filteredTransfers.reduce((sum, tItem) => sum + tItem.amount, 0);
 

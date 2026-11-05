@@ -5,6 +5,7 @@ import {
   ChevronDown,
   LogOut,
   ShieldCheck,
+  ShieldAlert,
   PlusCircle,
   Table,
   ArrowRightLeft,
@@ -19,8 +20,8 @@ import { getTranslation } from '../../services/i18n';
 import { Language } from '../../types';
 
 interface HeaderProps {
-  currentTab: 'dashboard' | 'spreadsheet' | 'transfer' | 'admin';
-  setCurrentTab: (tab: 'dashboard' | 'spreadsheet' | 'transfer' | 'admin') => void;
+  currentTab: 'dashboard' | 'spreadsheet' | 'transfer' | 'audit' | 'admin';
+  setCurrentTab: (tab: 'dashboard' | 'spreadsheet' | 'transfer' | 'audit' | 'admin') => void;
   onOpenRecordSale: () => void;
 }
 
@@ -383,6 +384,18 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
+            <button
+              onClick={() => setCurrentTab('audit')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                currentTab === 'audit'
+                  ? 'bg-[#EAF4FC] text-[#2878B9] font-semibold'
+                  : 'text-[#778493] hover:text-[#202B38] hover:bg-[#F7FAFD]'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>{t.auditLog}</span>
+            </button>
+
             {isSuperAdmin && (
               <button
                 onClick={() => setCurrentTab('admin')}
@@ -491,6 +504,14 @@ export const Header: React.FC<HeaderProps> = ({
               {t.transferOut}
             </button>
           )}
+          <button
+            onClick={() => setCurrentTab('audit')}
+            className={`px-3 py-1 rounded text-xs whitespace-nowrap ${
+              currentTab === 'audit' ? 'bg-[#EAF4FC] text-[#2878B9] font-semibold' : 'text-[#778493]'
+            }`}
+          >
+            {t.auditLog}
+          </button>
           {isSuperAdmin && (
             <button
               onClick={() => setCurrentTab('admin')}

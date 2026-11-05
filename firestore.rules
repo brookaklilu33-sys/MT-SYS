@@ -193,8 +193,8 @@ service cloud.firestore {
 
     // 8. Audit Logs Collection (Append-Only)
     match /auditLogs/{logId} {
-      allow get: if isSuperAdmin() && isValidId(logId);
-      allow list: if isSuperAdmin();
+      allow get: if isSignedIn() && isValidId(logId);
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && isValidId(logId) && isValidAuditLog(incoming());
       allow update: if false;
       allow delete: if false;

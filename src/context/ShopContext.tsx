@@ -18,7 +18,8 @@ import {
   Sale,
   Shop,
   TransferOut,
-  UserProfile
+  UserProfile,
+  AdamaMainConsolidation
 } from '../types';
 import {
   INITIAL_DISTRICTS,
@@ -62,6 +63,9 @@ interface ShopContextType {
     invoiceCount: number;
     deposited: number;
   }[];
+  // Formalized Adama Main administrative consolidation
+  adamaMainConsolidation: AdamaMainConsolidation;
+  isAdamaMainConsolidation: boolean;
 
   // Mutations
   addSale: (saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt' | 'totalDeposited' | 'depositDifference' | 'status'>) => Promise<Sale>;
@@ -248,21 +252,22 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           (error) => handleFirestoreError(error, OperationType.GET, 'reportingPeriods')
         );
 
+        // Authenticated audit log listener
+        unsubLogs = onSnapshot(
+          collection(db, 'auditLogs'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const loaded: AuditLog[] = [];
+              snapshot.forEach((doc) => loaded.push({ id: doc.id, ...doc.data() } as AuditLog));
+              loaded.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+              setAuditLogs(loaded);
+            }
+          },
+          (error) => handleFirestoreError(error, OperationType.GET, 'auditLogs')
+        );
+
         // Superadmin-only listeners
         if (isSuperAdmin) {
-          unsubLogs = onSnapshot(
-            collection(db, 'auditLogs'),
-            (snapshot) => {
-              if (!snapshot.empty) {
-                const loaded: AuditLog[] = [];
-                snapshot.forEach((doc) => loaded.push({ id: doc.id, ...doc.data() } as AuditLog));
-                loaded.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-                setAuditLogs(loaded);
-              }
-            },
-            (error) => handleFirestoreError(error, OperationType.GET, 'auditLogs')
-          );
-
           unsubUsers = onSnapshot(
             collection(db, 'users'),
             (snapshot) => {
@@ -329,8 +334,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }, [reportingPeriods, currentShopId, currentMonthKey]);
 
-  // Designated 5 shops for ADAMA MAIN consolidation
-  const ADAMA_MAIN_CONSOLIDATED_SHOPS = useMemo(() => ['adama', 'hawassa', 'borena', 'bale', 'assela'], []);
+  // Designated 5 shops for ADAMA MAIN administrative consolidation
+  const ADAMA_MAIN_CONSTITUENT_IDS = useMemo(() => ['adama', 'hawassa', 'borena', 'bale', 'assela'], []);
+  const ADAMA_MAIN_EXCLUDED_IDS = useMemo(() => ['jemo', 'chiro', 'shashemene'], []);
+
+  const isAdamaMainConsolidation = currentShopId === 'adama_main' || currentShop?.accountType === 'administrative_consolidation';
 
   // Filtered sales: handles individual shops, Adama Main consolidation, and 'all'
   const filteredSales = useMemo(() => {
@@ -352,19 +360,19 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Dynamically aggregates sales from the 5 assigned shops: Adama, Hawassa, Borena, Bale, Assela.
         // Explicitly excludes Jemo, Chiro, and Shashemene!
         if (currentShopId === 'adama_main') {
-          return ADAMA_MAIN_CONSOLIDATED_SHOPS.includes(s.shopId);
+          return ADAMA_MAIN_CONSTITUENT_IDS.includes(s.shopId);
         }
 
         // Standard operational shop
         return s.shopId === currentShopId;
       })
       .sort((a, b) => new Date(a.salesDate).getTime() - new Date(b.salesDate).getTime());
-  }, [sales, currentShopId, currentMonthKey, isSuperAdmin, userProfile, ADAMA_MAIN_CONSOLIDATED_SHOPS]);
+  }, [sales, currentShopId, currentMonthKey, isSuperAdmin, userProfile, ADAMA_MAIN_CONSTITUENT_IDS]);
 
   // Breakdown of Adama Main's 5 operational shops
   const adamaMainBreakdown = useMemo(() => {
     if (currentShopId !== 'adama_main') return [];
-    return ADAMA_MAIN_CONSOLIDATED_SHOPS.map((shopId) => {
+    return ADAMA_MAIN_CONSTITUENT_IDS.map((shopId) => {
       const sh = shops.find((s) => s.id === shopId) || { id: shopId, name: shopId, code: shopId.toUpperCase(), status: 'active', createdAt: '' };
       const sSales = sales.filter((s) => s.shopId === shopId && s.monthKey === currentMonthKey);
       const salesTotal = sSales.reduce((sum, s) => sum + s.salesAmount, 0);
@@ -376,7 +384,107 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deposited
       };
     });
-  }, [currentShopId, ADAMA_MAIN_CONSOLIDATED_SHOPS, shops, sales, currentMonthKey]);
+  }, [currentShopId, ADAMA_MAIN_CONSTITUENT_IDS, shops, sales, currentMonthKey]);
+
+  // Formalized Adama Main Administrative Consolidation Model
+  const adamaMainConsolidation: AdamaMainConsolidation = useMemo(() => {
+    const constituentShops = shops.filter((s) => ADAMA_MAIN_CONSTITUENT_IDS.includes(s.id));
+    const excludedShops = shops.filter((s) => ADAMA_MAIN_EXCLUDED_IDS.includes(s.id));
+
+    // Regional transfers: specifically allocated to 'adama_main' regional pool OR to any of the 5 constituent branches
+    const regionalTransfers = transferOuts.filter(
+      (t) =>
+        (t.shopId === 'adama_main' || ADAMA_MAIN_CONSTITUENT_IDS.includes(t.shopId)) &&
+        (currentMonthKey ? t.monthKey === currentMonthKey : true)
+    );
+    const regionalTransferOutTotal = regionalTransfers.reduce((sum, t) => sum + t.amount, 0);
+
+    // Sales strictly from the 5 constituent branches for this month
+    const regionalSales = sales.filter(
+      (s) =>
+        ADAMA_MAIN_CONSTITUENT_IDS.includes(s.shopId) &&
+        (currentMonthKey ? s.monthKey === currentMonthKey : true)
+    );
+
+    const regionalSalesTotal = regionalSales.reduce((sum, s) => sum + s.salesAmount, 0);
+    const regionalDepositedTotal = regionalSales.reduce((sum, s) => sum + s.totalDeposited, 0);
+    const regionalInvoiceCount = regionalSales.length;
+
+    // Reconciliation breakdown per branch
+    const branchBreakdowns = ADAMA_MAIN_CONSTITUENT_IDS.map((shopId) => {
+      const sh = shops.find((s) => s.id === shopId) || {
+        id: shopId,
+        name: shopId,
+        code: shopId.toUpperCase(),
+        accountType: 'operational' as const,
+        status: 'active' as const,
+        createdAt: ''
+      };
+
+      const branchSales = sales.filter(
+        (s) => s.shopId === shopId && (currentMonthKey ? s.monthKey === currentMonthKey : true)
+      );
+      const branchTransfers = transferOuts.filter(
+        (t) => t.shopId === shopId && (currentMonthKey ? t.monthKey === currentMonthKey : true)
+      );
+
+      const salesTotal = branchSales.reduce((sum, s) => sum + s.salesAmount, 0);
+      const depositedTotal = branchSales.reduce((sum, s) => sum + s.totalDeposited, 0);
+      const transferOutTotal = branchTransfers.reduce((sum, t) => sum + t.amount, 0);
+      const invoiceCount = branchSales.length;
+      const closingBalance = transferOutTotal - salesTotal;
+      const reconciledCount = branchSales.filter((s) => s.status === 'reconciled').length;
+      const partialCount = branchSales.filter((s) => s.status === 'partial').length;
+      const pendingEvidenceCount = branchSales.filter((s) => s.status === 'evidence_pending').length;
+
+      return {
+        shop: sh,
+        salesTotal,
+        depositedTotal,
+        invoiceCount,
+        transferOutTotal,
+        closingBalance,
+        reconciledCount,
+        partialCount,
+        pendingEvidenceCount
+      };
+    });
+
+    const reconciledCount = regionalSales.filter((s) => s.status === 'reconciled').length;
+    const partialCount = regionalSales.filter((s) => s.status === 'partial').length;
+    const pendingEvidenceCount = regionalSales.filter((s) => s.status === 'evidence_pending').length;
+
+    // Regional SOH = Regional Transfer Out - Regional Sales
+    const closingBalance = regionalTransferOutTotal - regionalSalesTotal;
+    const commissionRate = appSetting.defaultCommissionRate;
+    const commissionBasis = appSetting.calculationBasis === 'total_sales' ? regionalSalesTotal : regionalTransferOutTotal;
+    const commissionAmount = commissionBasis * commissionRate;
+    const difference = closingBalance - commissionAmount;
+
+    return {
+      accountType: 'administrative_consolidation' as const,
+      shopId: 'adama_main' as const,
+      shopName: 'ADAMA MAIN (Consolidated)',
+      constituentShopIds: ADAMA_MAIN_CONSTITUENT_IDS,
+      constituentShops,
+      excludedShopIds: ADAMA_MAIN_EXCLUDED_IDS,
+      excludedShops,
+      totals: {
+        sales: regionalSalesTotal,
+        deposited: regionalDepositedTotal,
+        transferOut: regionalTransferOutTotal,
+        invoiceCount: regionalInvoiceCount,
+        closingBalance,
+        commissionAmount,
+        difference,
+        reconciledCount,
+        partialCount,
+        pendingEvidenceCount
+      },
+      branchBreakdowns,
+      regionalTransfers
+    };
+  }, [shops, transferOuts, sales, currentMonthKey, appSetting, ADAMA_MAIN_CONSTITUENT_IDS, ADAMA_MAIN_EXCLUDED_IDS]);
 
   // Filtered Transfer Out:
   const filteredTransfers = useMemo(() => {
@@ -390,12 +498,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (currentShopId === 'all') return true;
         if (currentShopId === 'adama_main') {
-          return t.shopId === 'adama_main';
+          // Include transfers allocated to adama_main regional pool OR the 5 branches
+          return t.shopId === 'adama_main' || ADAMA_MAIN_CONSTITUENT_IDS.includes(t.shopId);
         }
         return t.shopId === currentShopId;
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [transferOuts, currentShopId, currentMonthKey, isSuperAdmin, userProfile]);
+  }, [transferOuts, currentShopId, currentMonthKey, isSuperAdmin, userProfile, ADAMA_MAIN_CONSTITUENT_IDS]);
 
   // Float Reconciliation Summary Calculation:
   const summary = useMemo(() => {
@@ -420,9 +529,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Access denied: cannot record sales for an unauthorized shop.');
     }
 
-    // Do not record sales directly into adama_main consolidation wrapper
-    if (saleData.shopId === 'adama_main') {
-      throw new Error('Adama Main is a consolidation account. Please select an operational branch (Adama, Hawassa, Borena, Bale, Assela) to record the sale.');
+    // Do not record sales directly into administrative consolidation accounts
+    const targetShop = shops.find((s) => s.id === saleData.shopId);
+    if (saleData.shopId === 'adama_main' || targetShop?.accountType === 'administrative_consolidation') {
+      throw new Error('Adama Main is an administrative consolidation account. Please select an operational branch (Adama, Hawassa, Borena, Bale, Assela) to record the sale.');
     }
 
     const totalDeposited = (saleData.bankDeposits || []).reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
@@ -953,6 +1063,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         filteredSales,
         filteredTransfers,
         adamaMainBreakdown,
+        adamaMainConsolidation,
+        isAdamaMainConsolidation,
         addSale,
         updateSale,
         addTransferOut,
